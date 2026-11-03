@@ -704,6 +704,8 @@ function auInit(){
   const len=c.sampleRate,buf=c.createBuffer(1,len,c.sampleRate),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;AU.noise=buf;
   if(AU.want)musPlay(AU.want);
 }
+addEventListener('pointerdown',()=>{if(AU.want&&AU.wantKey&&musEl[AU.wantKey]&&musEl[AU.wantKey].paused&&!musBad[AU.wantKey])musEl[AU.wantKey].play().catch(()=>{});});
+addEventListener('keydown',()=>{if(AU.want&&AU.wantKey&&musEl[AU.wantKey]&&musEl[AU.wantKey].paused&&!musBad[AU.wantKey])musEl[AU.wantKey].play().catch(()=>{});});
 function auVol(){for(const k in musEl)musEl[k].volume=Math.min(1,save.set.mus);if(!AU.ctx)return;AU.sfx.gain.value=save.set.sfx;AU.mus.gain.value=save.set.mus*.5;}
 addEventListener('pointerdown',auInit);addEventListener('keydown',auInit);
 function tone(freq,dur,type,vol,slide,when,dest){
@@ -752,16 +754,20 @@ const SONGS={
   menu:{bpm:96,root:57,bass:[0,,,0,,,7,,5,,,5,,,3,,],lead:[12,,15,,19,,15,,12,,15,,17,,15,,],kick:[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],hat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],every:true},
   race:{bpm:132,root:45,bass:[0,0,12,0,0,0,12,0,3,3,15,3,5,5,17,7],lead:[24,,22,,19,,22,24,,27,,24,22,,19,,],kick:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],hat:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,1]},
 };
-// ▼ 배경음악 파일을 받으면 여기에 파일 경로를 넣으면 됩니다 (예: 'bgm-menu.mp3'). 비워두면 코드로 만든 음악이 나와요.
-const MUSIC_SRC={menu:'',race:''};
-const musEl={};
-function musFile(name){
-  for(const k in musEl)if(k!==name)musEl[k].pause();
-  if(!musEl[name]){const a=new Audio(MUSIC_SRC[name]);a.loop=true;musEl[name]=a;}
-  const a=musEl[name];a.volume=Math.min(1,save.set.mus);if(a.paused){a.currentTime=0;a.play().catch(()=>{});}
+// ▼ 배경음악 파일 (index.html 옆 bgm 폴더). 파일이 없거나 못 읽으면 코드로 만든 음악이 대신 나와요.
+const MUSIC_SRC={menu:'bgm/theme.mp3',race0:'bgm/city.mp3',race1:'bgm/sunset.mp3',race2:'bgm/neon.mp3',race3:'bgm/champion.mp3'};
+const musEl={},musBad={};
+function musFile(key,restart){
+  for(const k in musEl)if(k!==key)musEl[k].pause();
+  if(!musEl[key]){const a=new Audio(MUSIC_SRC[key]);a.loop=true;a.preload='auto';
+    a.onerror=()=>{musBad[key]=true;if(AU.wantKey===key)musPlay(AU.want);};musEl[key]=a;}
+  const a=musEl[key];a.volume=Math.min(1,save.set.mus);
+  if(restart)try{a.currentTime=0;}catch(e){}
+  if(a.paused)a.play().catch(()=>{});
 }
-function musPlay(name){AU.want=name;
-  if(MUSIC_SRC[name]){if(AU.musTimer){clearInterval(AU.musTimer);AU.musTimer=null;}AU.song=name;musFile(name);return;}
+function musPlay(name,restart){AU.want=name;
+  const key=name==='race'?'race'+TR.id:name;AU.wantKey=key;
+  if(MUSIC_SRC[key]&&!musBad[key]){if(AU.musTimer){clearInterval(AU.musTimer);AU.musTimer=null;}AU.song=null;musFile(key,restart);return;}
   for(const k in musEl)musEl[k].pause();
   if(!AU.ctx)return;if(AU.song===name&&AU.musTimer)return;
   AU.song=name;AU.step=0;AU.next=AU.ctx.currentTime+.05;if(!AU.musTimer)AU.musTimer=setInterval(musTick,25);}
@@ -1391,8 +1397,7 @@ function buildLeague(){
   });
 }
 function startRace(l){
-  musPlay('race');
-  TR=l;selLeague=l.id;newRun(l);cycT=l.cyc;cycSpd=l.spd;mode='count';cdLast=4;show(null);
+  TR=l;selLeague=l.id;musPlay('race',true);newRun(l);cycT=l.cyc;cycSpd=l.spd;mode='count';cdLast=4;show(null);
   $('trk').textContent=`${l.name} · ${l.len}m`;
   const pl=$('pline');pl.innerHTML='';
   const add=(cls,col)=>{const d=document.createElement('i');d.className=cls;if(col)d.style.background=col;pl.appendChild(d);return d;};
